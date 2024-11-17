@@ -1,3 +1,5 @@
+// Copyright (C) 2024 Michael J. Fromberger. All Rights Reserved.
+
 // Package semver handles the parsing and formatting of [Semantic Version] strings.
 //
 // # Usage Outline
@@ -27,7 +29,6 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -45,7 +46,7 @@ type V struct {
 // The pre-release and build metadata of the resulting value are empty.
 // New will panic if any of these values is negative.
 func New(major, minor, patch int) V {
-	return V{major: mustFmt(major), minor: mustFmt(minor), patch: mustFmt(patch)}
+	return V{major: mustItoa(major), minor: mustItoa(minor), patch: mustItoa(patch)}
 }
 
 // Before reports whether v is before w in version order.
@@ -80,7 +81,7 @@ func (v V) PreRelease() string { return strings.Join(v.pre, ".") }
 
 // WithPreRelease returns a copy of v with its pre-release ID set.
 // If id == "", the resulting version has no pre-release ID.
-func (v V) WithPreRelease(id string) V { v.pre = dotWords(id); return v }
+func (v V) WithPreRelease(id string) V { v.pre = splitWords(id); return v }
 
 // Build reports the build metadata string, if present.
 // The resulting string does not include the "+" prefix.
@@ -88,7 +89,7 @@ func (v V) Build() string { return strings.Join(v.build, ".") }
 
 // WithBuild returns a copy of v with its build metadata set.
 // If meta == "", the resulting version has no build metadata.
-func (v V) WithBuild(meta string) V { v.build = dotWords(meta); return v }
+func (v V) WithBuild(meta string) V { v.build = splitWords(meta); return v }
 
 // String returns the complete canonical string representation of v.
 func (v V) String() string {
@@ -139,57 +140,56 @@ func MustParse(s string) V {
 
 // Parse returns the [V] represented by s.
 func Parse(s string) (V, error) {
-	m := svRE.FindStringSubmatch(s)
-	if m == nil {
-		return V{}, errSyntax
-	}
-	out := V{
-		major: m[posMajor],
-		minor: m[posMinor],
-		patch: m[posPatch],
-	}
-	if v := m[posPre]; v != "" {
-		out.pre = strings.Split(v, ".")
-	}
-	if v := m[posBuild]; v != "" {
-		out.build = strings.Split(v, ".")
-	}
-	return out, nil
-}
-
-const (
 	// Grammar: https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions
+	ps := strings.SplitN(s, ".", 3)
+	if len(ps) != 3 {
+		return V{}, errors.New("invalid version syntax")
+	}
+	v := V{major: ps[0], minor: ps[1], patch: ps[2]}
+	if err := checkVNum(v.major); err != nil {
+		return V{}, fmt.Errorf("invalid major: %w", err)
+	}
+	if err := checkVNum(v.minor); err != nil {
+		return V{}, fmt.Errorf("invalid minor: %w", err)
+	}
+	var rest string
+	if i := strings.IndexAny(v.patch, "-+"); i >= 0 {
+		rest = v.patch[i:] // N.B. keep the marker
+		v.patch = v.patch[:i]
+	}
+	if err := checkVNum(v.patch); err != nil {
+		return V{}, fmt.Errorf("invalid patch: %w", err)
+	}
 
-	expr = `` + // semver → major '.' minor '.' patch ['-' pre-release] ['+' build]
-		`(?P<major>` + numericID + `)` +
-		`\.(?P<minor>` + numericID + `)` +
-		`\.(?P<patch>` + numericID + `)` +
-		preRelease +
-		build +
-		`$`
+	// Check for pre-release and build labels.
+	var pre, build string
+	var hasPre, hasBuild bool
+	if p, ok := strings.CutPrefix(rest, "-"); ok {
+		// rest == "-<pre>[+<build>]"
+		hasPre = true
+		pre, build, hasBuild = strings.Cut(p, "+")
+	} else {
+		// rest == "" or rest == "+<build>"
+		build, hasBuild = strings.CutPrefix(rest, "+")
+	}
 
-	// pre-release → pr-id {'.' pr-id}
-	preRelease = `(?:-(?P<pre>` + prID + `(?:\.` + prID + `)*))?`
-	// build → build-id {'.' build-id}
-	build = `(?:\+(?P<build>` + buildID + `(?:\.` + buildID + `)*))?`
-
-	numericID = `(?:0|[1-9]\d*)`                          // zero or positive
-	alphaID   = `(?:[-a-zA-Z0-9]*[-a-zA-Z][-a-zA-Z0-9]*)` // at least one non-digit
-	prID      = `(?:` + alphaID + `|` + numericID + `)`
-	buildID   = `(?:` + alphaID + `|[0-9]+)`
-)
-
-var (
-	svRE = regexp.MustCompile(expr)
-
-	posMajor = svRE.SubexpIndex("major")
-	posMinor = svRE.SubexpIndex("minor")
-	posPatch = svRE.SubexpIndex("patch")
-	posPre   = svRE.SubexpIndex("pre")
-	posBuild = svRE.SubexpIndex("build")
-
-	errSyntax = errors.New("invalid semver format")
-)
+	var err error
+	if hasPre {
+		if pre == "" {
+			return V{}, errors.New("empty pre-release")
+		} else if v.pre, err = parseWords(pre); err != nil {
+			return V{}, fmt.Errorf("invalid pre-release %q: %w", pre, err)
+		}
+	}
+	if hasBuild {
+		if build == "" {
+			return V{}, errors.New("empty build metadata")
+		} else if v.build, err = parseWords(build); err != nil {
+			return V{}, fmt.Errorf("invalid build %q: %w", build, err)
+		}
+	}
+	return v, nil
+}
 
 // mustVal returns the integer represented by s, or panics.
 // As a special case, if s == "" it returns 0.
@@ -201,19 +201,54 @@ func mustVal(s string) int {
 	return v
 }
 
-// isNum reports whether s comprises only digits, and if so the integer value
-// represented by them. As a special case, if s == "" it returns (0, true).
+// isNum reports whether s comprises only digits, and if so returns the integer
+// value represented by s. As a special case, if s == "" it returns (0, true).
 func isNum(s string) (int, bool) {
 	v := 0
 	for i := range s {
 		d := s[i]
-		if d >= '0' && d <= '9' {
-			v = (v * 10) + int(d-'0')
-		} else {
+		if d < '0' || d > '9' {
 			return -1, false
 		}
+		v = (v * 10) + int(d-'0')
 	}
 	return v, true
+}
+
+// isWord reports whether s comprises only digits, letters, and hyphens.
+func isWord(s string) bool {
+	for i := range s {
+		switch d := s[i]; {
+		case d >= '0' && d <= '9', d >= 'a' && d <= 'z', d >= 'A' && d <= 'Z', d == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// checkVNum reports an error of s is not a valid version number.
+func checkVNum(s string) error {
+	if _, ok := isNum(s); !ok || s == "" {
+		return errors.New("not a number")
+	} else if s[0] == '0' && s != "0" {
+		return errors.New("leading zeroes")
+	}
+	return nil
+}
+
+// parseWords parses s as a dot-separated sequence of words.
+// Precondition: s != ""
+func parseWords(s string) ([]string, error) {
+	ws := splitWords(s)
+	for i, w := range ws {
+		if w == "" {
+			return nil, fmt.Errorf("empty word (%d)", i+1)
+		} else if !isWord(w) {
+			return nil, fmt.Errorf("invalid char (%d)", i+1)
+		}
+	}
+	return ws, nil
 }
 
 // compareWord compares a and b. If both comprise only digits, the comparison
@@ -227,16 +262,16 @@ func compareWord(a, b string) int {
 	return cmp.Compare(a, b)
 }
 
-// mustFmt formats v as decimal digits. It panics if v < 0.
-func mustFmt(v int) string {
+// mustItoa formats v as decimal digits. It panics if v < 0.
+func mustItoa(v int) string {
 	if v < 0 {
 		panic(fmt.Sprintf("negative version: %v", v))
 	}
 	return strconv.Itoa(v)
 }
 
-// dotWords returns the dot-separated words of s, or nil if s == "".
-func dotWords(s string) []string {
+// splitWords returns the dot-separated words of s, or nil if s == "".
+func splitWords(s string) []string {
 	if s == "" {
 		return nil
 	}

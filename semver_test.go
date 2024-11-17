@@ -1,7 +1,10 @@
+// Copyright (C) 2024 Michael J. Fromberger. All Rights Reserved.
+
 package semver_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/creachadair/semver"
@@ -113,6 +116,42 @@ func TestFormat(t *testing.T) {
 	for _, tc := range tests {
 		if got := tc.input.String(); got != tc.want {
 			t.Errorf("String %#v: got %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestErrors(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"", "invalid version syntax"},
+		{"1", "invalid version syntax"},
+		{"1.0", "invalid version syntax"},
+		{"..", "major: not a number"},
+		{"1..", "minor: not a number"},
+		{"1.1.", "patch: not a number"},
+		{"q.0.3", "major: not a number"},
+		{"1.q.0", "minor: not a number"},
+		{"1.0.q", "patch: not a number"},
+		{"05.0.0", "major: leading zeroes"},
+		{"1.06.1", "minor: leading zeroes"},
+		{"1.2.07", "patch: leading zeroes"},
+		{"2.4.0-", "empty pre-release"},
+		{"1.0.0+", "empty build"},
+		{"2.4.0-ok+", "empty build"},
+		{"0.1.2-a..b", `pre-release "a..b": empty word (2)`},
+		{"1.2.3+a.b.", `build "a.b.": empty word (3)`},
+		{"4.5.6-ok.123+.a", `build ".a": empty word (1)`},
+		{"1.0.0-bo?gus", `pre-release "bo?gus": invalid char (1)`},
+		{"1.4.0+is.b@d", `build "is.b@d": invalid char (2)`},
+	}
+	for _, tc := range tests {
+		got, err := semver.Parse(tc.input)
+		if err == nil {
+			t.Errorf("Parse %q: got (%v, nil), want %q", tc.input, got, tc.want)
+		} else if es := err.Error(); !strings.Contains(es, tc.want) {
+			t.Errorf("Parse %q: got %v, want %q", tc.input, err, tc.want)
 		}
 	}
 }
