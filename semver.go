@@ -154,6 +154,9 @@ func MustParse(s string) V {
 	return v
 }
 
+// IsValid reports whether s is a valid semver string.
+func IsValid(s string) bool { _, err := Parse(s); return err == nil }
+
 // Parse returns the [V] represented by s.
 func Parse(s string) (V, error) {
 	// Grammar: https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions

@@ -56,6 +56,7 @@ func TestOrder(t *testing.T) {
 		{"1.2.3-four", "1.2.3-four+five", 0},
 		{"1.2.3-four+five", "1.2.3-four+six.seven", 0},
 	}
+	uniq := make(map[string]bool)
 	for _, tc := range tests {
 		name := fmt.Sprintf("Compare/%s/%s", tc.a, tc.b)
 		t.Run(name, func(t *testing.T) {
@@ -82,8 +83,16 @@ func TestOrder(t *testing.T) {
 				t.Errorf("Want [%v].After(%v), but it is not", tc.a, tc.b)
 			}
 		})
+		uniq[tc.a] = true
+		uniq[tc.b] = true
 	}
-
+	t.Run("IsValid", func(t *testing.T) {
+		for s := range uniq {
+			if !semver.IsValid(s) {
+				t.Errorf("IsValid %q: got false, want true", s)
+			}
+		}
+	})
 	t.Run("Zero", func(t *testing.T) {
 		zero := mustParse(t, "0.0.0")
 		if got := semver.Compare(zero, semver.V{}); got != 0 {
@@ -152,6 +161,10 @@ func TestErrors(t *testing.T) {
 			t.Errorf("Parse %q: got (%v, nil), want %q", tc.input, got, tc.want)
 		} else if es := err.Error(); !strings.Contains(es, tc.want) {
 			t.Errorf("Parse %q: got %v, want %q", tc.input, err, tc.want)
+		}
+
+		if semver.IsValid(tc.input) {
+			t.Errorf("IsValid %q: got true, want false", tc.input)
 		}
 	}
 }
