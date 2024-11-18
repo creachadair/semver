@@ -125,9 +125,9 @@ func TestErrors(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"", "invalid version syntax"},
-		{"1", "invalid version syntax"},
-		{"1.0", "invalid version syntax"},
+		{"", "wrong length (got 0"},
+		{"1", "wrong length (got 1"},
+		{"1.0", "wrong length (got 2"},
 		{"..", "major: not a number"},
 		{"1..", "minor: not a number"},
 		{"1.1.", "patch: not a number"},
@@ -140,11 +140,11 @@ func TestErrors(t *testing.T) {
 		{"2.4.0-", "empty pre-release"},
 		{"1.0.0+", "empty build"},
 		{"2.4.0-ok+", "empty build"},
-		{"0.1.2-a..b", `pre-release "a..b": empty word (2)`},
-		{"1.2.3+a.b.", `build "a.b.": empty word (3)`},
-		{"4.5.6-ok.123+.a", `build ".a": empty word (1)`},
-		{"1.0.0-bo?gus", `pre-release "bo?gus": invalid char (1)`},
-		{"1.4.0+is.b@d", `build "is.b@d": invalid char (2)`},
+		{"0.1.2-a..b", `pre-release "a..b": empty word (pos 2)`},
+		{"1.2.3+a.b.", `build "a.b.": empty word (pos 3)`},
+		{"4.5.6-ok.123+.a", `build ".a": empty word (pos 1)`},
+		{"1.0.0-bo?gus", `pre-release "bo?gus": invalid char (pos 1)`},
+		{"1.4.0+is.b@d", `build "is.b@d": invalid char (pos 2)`},
 	}
 	for _, tc := range tests {
 		got, err := semver.Parse(tc.input)

@@ -143,9 +143,28 @@ func MustParse(s string) V {
 // Parse returns the [V] represented by s.
 func Parse(s string) (V, error) {
 	// Grammar: https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions
-	ps := strings.SplitN(s, ".", 3)
+
+	// Check for pre-release and build labels.
+	var pre, build string
+	var hasPre, hasBuild bool
+	if i := strings.IndexAny(s, "-+"); i >= 0 {
+		rest := s[i:] // N.B. keep the marker
+		s = s[:i]
+
+		if p, ok := strings.CutPrefix(rest, "-"); ok {
+			// rest == "-<pre>[+<build>]"
+			hasPre = true
+			pre, build, hasBuild = strings.Cut(p, "+")
+		} else {
+			// rest == "" or rest == "+<build>"
+			build, hasBuild = strings.CutPrefix(rest, "+")
+		}
+	}
+
+	// Parse the base version: major '.' minor '.' patch
+	ps := splitWords(s)
 	if len(ps) != 3 {
-		return V{}, errors.New("invalid version syntax")
+		return V{}, fmt.Errorf("wrong length (got %d, want 3)", len(ps))
 	}
 	v := V{major: ps[0], minor: ps[1], patch: ps[2]}
 	if err := checkVNum(v.major); err != nil {
@@ -154,25 +173,8 @@ func Parse(s string) (V, error) {
 	if err := checkVNum(v.minor); err != nil {
 		return V{}, fmt.Errorf("invalid minor: %w", err)
 	}
-	var rest string
-	if i := strings.IndexAny(v.patch, "-+"); i >= 0 {
-		rest = v.patch[i:] // N.B. keep the marker
-		v.patch = v.patch[:i]
-	}
 	if err := checkVNum(v.patch); err != nil {
 		return V{}, fmt.Errorf("invalid patch: %w", err)
-	}
-
-	// Check for pre-release and build labels.
-	var pre, build string
-	var hasPre, hasBuild bool
-	if p, ok := strings.CutPrefix(rest, "-"); ok {
-		// rest == "-<pre>[+<build>]"
-		hasPre = true
-		pre, build, hasBuild = strings.Cut(p, "+")
-	} else {
-		// rest == "" or rest == "+<build>"
-		build, hasBuild = strings.CutPrefix(rest, "+")
 	}
 
 	var err error
@@ -290,9 +292,9 @@ func parseWords(s string) ([]string, error) {
 	ws := splitWords(s)
 	for i, w := range ws {
 		if w == "" {
-			return nil, fmt.Errorf("empty word (%d)", i+1)
+			return nil, fmt.Errorf("empty word (pos %d)", i+1)
 		} else if !isWord(w) {
-			return nil, fmt.Errorf("invalid char (%d)", i+1)
+			return nil, fmt.Errorf("invalid char (pos %d)", i+1)
 		}
 	}
 	return ws, nil
