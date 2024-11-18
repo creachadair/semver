@@ -130,6 +130,20 @@ func Compare(v1, v2 V) int {
 	// N.B. Build metadata are not considered for comparisons.
 }
 
+// CompareStrings compares s1 and s2 in standard semantic version order.
+// The strings are cleaned (see [Clean]) before comparison.
+// It returns -1 if s1 < s2, 0 if s1 == s2, and +1 if s1 > s2.
+// If either string is not a valid semver after cleaning, the two strings are
+// compared in ordinary lexicographic order.
+func CompareStrings(s1, s2 string) int {
+	v1, err1 := Parse(Clean(s1))
+	v2, err2 := Parse(Clean(s2))
+	if err1 == nil && err2 == nil {
+		return Compare(v1, v2)
+	}
+	return cmp.Compare(s1, s2)
+}
+
 // MustParse returns the [V] represented by s, or panics.  This is intended for
 // use in program initialization; use [Parse] to check for errors.
 func MustParse(s string) V {

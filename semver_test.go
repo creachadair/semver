@@ -198,3 +198,34 @@ func TestClean(t *testing.T) {
 		}
 	}
 }
+
+func TestCompareStrings(t *testing.T) {
+	tests := []struct {
+		a, b string
+		want int
+	}{
+		// Both invalid.
+		{"", "", 0},
+		{"a", "b", -1},
+		{"b", "a", 1},
+		{"nonsense", "hoo-hah", 1},
+
+		// One valid, one invalid.
+		{"12 angry cats", "6.2.4", -1},
+		{"v1.2", "nonesuch", 1},
+
+		// Both valid.
+		{"v1", "1.0.0", 0},
+		{"1.2", "v1.2.0+extra", 0},
+		{"1", "1.0", 0},
+		{"v1.0.4-rc1", "1.0", 1},
+		{"v1-rc2", "1.0", -1},
+		{"v2-rc3", "2.0-rc2", 1},
+	}
+	for _, tc := range tests {
+		got := semver.CompareStrings(tc.a, tc.b)
+		if got != tc.want {
+			t.Errorf("CompareStrings %q, %q: got %v, want %v", tc.a, tc.b, got, tc.want)
+		}
+	}
+}
