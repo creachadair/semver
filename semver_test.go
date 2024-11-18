@@ -155,3 +155,46 @@ func TestErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestClean(t *testing.T) {
+	tests := []struct {
+		input, want string
+	}{
+		// Strings without a major version are not modified.
+		{"", ""},
+		{".", "."},
+		{".1.3", ".1.3"},
+		{"v..+b-q", "v..+b-q"},
+		{" .5... ", " .5... "},
+		{" v-rc1", " v-rc1"},
+
+		// Lesser versions are stubbed to zero.
+		{"1", "1.0.0"},
+		{"1.5", "1.5.0"},
+		{"3.1.4", "3.1.4"},
+
+		// Leading and trailing spaces and leading "v" are removed.
+		{" 1 ", "1.0.0"},
+		{"v1 ", "1.0.0"},
+		{" 1.5 ", "1.5.0"},
+		{"v2.79\n", "2.79.0"},
+		{"\nv6.5.4\t", "6.5.4"},
+		{" v2\t", "2.0.0"},
+		{"\tv3.14\r\n", "3.14.0"},
+
+		// Empty fragments are discarded, in various combinations.
+		{"1-", "1.0.0"},
+		{"1+", "1.0.0"},
+		{"1-+", "1.0.0"},
+		{"1-foo+", "1.0.0-foo"},
+		{"1-+bar", "1.0.0+bar"},
+		{"1+bar-", "1.0.0+bar-"},
+		{"1.2-a..b+c-d.e.", "1.2.0-a.b+c-d.e"},
+	}
+	for _, tc := range tests {
+		got := semver.Clean(tc.input)
+		if got != tc.want {
+			t.Errorf("Clean %q: got %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}

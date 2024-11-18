@@ -32,6 +32,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/creachadair/mds/slice"
 )
 
 // V represents a parsed semantic version label. A zero value is ready for use,
@@ -191,6 +193,51 @@ func Parse(s string) (V, error) {
 	return v, nil
 }
 
+// Clean returns a lexically normalized form of a semver-like string.
+// The following changes are made, if possible:
+//
+//   - Leading and trailing whitespace is removed.
+//   - A leading "v" is removed, if present.
+//   - Omitted minor or patch versions are set to "0".
+//   - Empty pre-release and build labels are removed.
+//
+// If a major version is not present, Clean returns s entirely unmodified.
+// Otherwise, except as described above, the input is not modified. In
+// particular, if s contains invalid characters or non-numeric version numbers,
+// the result may (still) not be a valid version string.
+func Clean(s string) string {
+	base := strings.TrimPrefix(strings.TrimSpace(s), "v")
+	var pre, build string
+	if i := strings.IndexAny(base, "-+"); i >= 0 {
+		tail := base[i:]
+		base = base[:i]
+		if p, ok := strings.CutPrefix(tail, "-"); ok {
+			pre, build, _ = strings.Cut(p, "+")
+		} else {
+			build = p[1:] // drop "+"
+		}
+	}
+	ps := strings.SplitN(base, ".", 3)
+	if len(ps) == 0 || ps[0] == "" {
+		return s
+	}
+	for i := 1; i < 3; i++ {
+		if i >= len(ps) {
+			ps = append(ps, "0")
+		} else if ps[i] == "" {
+			ps[i] = "0"
+		}
+	}
+	out := strings.Join(ps, ".")
+	if p := cleanWords(pre); p != "" {
+		out += "-" + p
+	}
+	if p := cleanWords(build); p != "" {
+		out += "+" + p
+	}
+	return out
+}
+
 // mustVal returns the integer represented by s, or panics.
 // As a special case, if s == "" it returns 0.
 func mustVal(s string) int {
@@ -276,4 +323,11 @@ func splitWords(s string) []string {
 		return nil
 	}
 	return strings.Split(s, ".")
+}
+
+// cleanWords returns a copy of s with all empty words removed.
+func cleanWords(s string) string {
+	return strings.Join(slice.Partition(splitWords(s), func(v string) bool {
+		return v != ""
+	}), ".")
 }

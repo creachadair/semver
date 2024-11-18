@@ -32,3 +32,13 @@ func Example() {
 	// clean: 1.5.3-rc1.4
 	// equiv: 1.5.3-rc1.4+modified 1.5.3-rc1.4 true
 }
+
+func ExampleClean() {
+	const dirty = " v1.2-rc3..1\t"
+
+	fmt.Printf("dirty: %q\n", dirty)
+	fmt.Println("clean:", semver.Clean(dirty))
+	// Output:
+	// dirty: " v1.2-rc3..1\t"
+	// clean: 1.2.0-rc3.1
+}
