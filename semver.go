@@ -97,7 +97,7 @@ func (v V) PreRelease() string { return strings.Join(v.pre, ".") }
 
 // WithPreRelease returns a copy of v with its pre-release ID set.
 // If id == "", the resulting version has no pre-release ID.
-func (v V) WithPreRelease(id string) V { v.pre = splitWords(id); return v }
+func (v V) WithPreRelease(id string) V { v.pre = cleanWords(id); return v }
 
 // Build reports the build metadata string, if present.
 // The resulting string does not include the "+" prefix.
@@ -105,7 +105,7 @@ func (v V) Build() string { return strings.Join(v.build, ".") }
 
 // WithBuild returns a copy of v with its build metadata set.
 // If meta == "", the resulting version has no build metadata.
-func (v V) WithBuild(meta string) V { v.build = splitWords(meta); return v }
+func (v V) WithBuild(meta string) V { v.build = cleanWords(meta); return v }
 
 // String returns the complete canonical string representation of v.
 func (v V) String() string {
@@ -262,10 +262,10 @@ func Clean(s string) string {
 		}
 	}
 	out := strings.Join(ps, ".")
-	if p := cleanWords(pre); p != "" {
+	if p := joinCleanWords(pre); p != "" {
 		out += "-" + p
 	}
-	if p := cleanWords(build); p != "" {
+	if p := joinCleanWords(build); p != "" {
 		out += "+" + p
 	}
 	return out
@@ -358,9 +358,10 @@ func splitWords(s string) []string {
 	return strings.Split(s, ".")
 }
 
-// cleanWords returns a copy of s with all empty words removed.
-func cleanWords(s string) string {
-	return strings.Join(slice.Partition(splitWords(s), func(v string) bool {
-		return v != ""
-	}), ".")
+// cleanWords splits s into words, with all empty words discarded.
+func cleanWords(s string) []string {
+	return slice.Partition(splitWords(s), func(v string) bool { return v != "" })
 }
+
+// joinCleanWords returns a copy of s with all empty words removed.
+func joinCleanWords(s string) string { return strings.Join(cleanWords(s), ".") }

@@ -122,6 +122,9 @@ func TestFormat(t *testing.T) {
 		{semver.MustParse("1.2.3-four.five+six").Core(), "1.2.3"},
 		{semver.MustParse("1.2.3+four").WithBuild(""), "1.2.3"},
 		{semver.V{}.WithPreRelease("rc1.2.3-4"), "0.0.0-rc1.2.3-4"},
+		{semver.New(1, 2, 3).WithBuild("a..b."), "1.2.3+a.b"},
+		{semver.New(4, 5, 6).WithPreRelease("a..b."), "4.5.6-a.b"},
+		{semver.New(7, 8, 9).WithBuild("q.").WithPreRelease(".r"), "7.8.9-r+q"},
 	}
 	for _, tc := range tests {
 		if got := tc.input.String(); got != tc.want {
