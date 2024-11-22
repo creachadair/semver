@@ -85,6 +85,7 @@ func (v V) Add(dmajor, dminor, dpatch int) V {
 func (v V) Core() V { v.pre = nil; v.build = nil; return v }
 
 // WithCore returns a copy of v with its core version (major.minor.patch) set.
+// WithCore will panic if any of these values is negative.
 func (v V) WithCore(major, minor, patch int) V {
 	v.major, v.minor, v.patch = mustItoa(major), mustItoa(minor), mustItoa(patch)
 	return v
