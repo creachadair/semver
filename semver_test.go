@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/creachadair/mds/mtest"
 	"github.com/creachadair/semver"
 )
 
@@ -239,6 +240,54 @@ func TestCompareStrings(t *testing.T) {
 		got := semver.CompareStrings(tc.a, tc.b)
 		if got != tc.want {
 			t.Errorf("CompareStrings %q, %q: got %v, want %v", tc.a, tc.b, got, tc.want)
+		}
+	}
+}
+
+func TestWithCore(t *testing.T) {
+	tests := []struct {
+		input               string
+		major, minor, patch int
+		want                string
+	}{
+		{"1.5.3", 0, 1, 1, "0.1.1"},
+		{"0.1.2", 5, 1, 0, "5.1.0"},
+		{"1.0.5-rc5+dirty", 1, 1, 3, "1.1.3-rc5+dirty"},
+	}
+	for _, tc := range tests {
+		input, want := mustParse(t, tc.input), mustParse(t, tc.want)
+		got := input.WithCore(tc.major, tc.minor, tc.patch)
+		if got.String() != want.String() {
+			t.Errorf("[%s].WithCore(%d, %d, %d): got %q, want %q", input,
+				tc.major, tc.minor, tc.patch, got, want,
+			)
+		}
+	}
+	mtest.MustPanic(t, func() { semver.V{}.WithCore(-1, 0, 0) })
+	mtest.MustPanic(t, func() { semver.V{}.WithCore(0, -1, 0) })
+	mtest.MustPanic(t, func() { semver.V{}.WithCore(0, 0, -1) })
+}
+
+func TestAdd(t *testing.T) {
+	tests := []struct {
+		input                  string
+		dmajor, dminor, dpatch int
+		want                   string
+	}{
+		{"1.0.0", 0, 0, 0, "1.0.0"},
+		{"0.1.0", 0, 0, 1, "0.1.1"},
+		{"2.1.5", -1, 3, 4, "1.4.9"},
+		{"0.0.1", -1, -1, -1, "0.0.0"},
+		{"2.0.1-rc3", 0, 0, 1, "2.0.2-rc3"},
+		{"1.1.1+unstable", -1, 1, 3, "0.2.4+unstable"},
+	}
+	for _, tc := range tests {
+		input, want := mustParse(t, tc.input), mustParse(t, tc.want)
+		got := input.Add(tc.dmajor, tc.dminor, tc.dpatch)
+		if got.String() != want.String() {
+			t.Errorf("[%s].Add(%d, %d, %d): got %q, want %q", input,
+				tc.dmajor, tc.dminor, tc.dpatch, got, want,
+			)
 		}
 	}
 }
