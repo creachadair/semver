@@ -17,17 +17,17 @@ func Example() {
 
 	fmt.Println("version:", v)
 	fmt.Println("core:", v.Core())
-	fmt.Println("pre:", v.PreRelease())
+	fmt.Println("release:", v.Release())
 	fmt.Println("build:", v.Build())
 	fmt.Println("clean:", v.WithBuild(""))
 
-	w := semver.New(1, 5, 3).WithPreRelease("rc1.4")
+	w := semver.New(1, 5, 3).WithRelease("rc1.4")
 	fmt.Println("equiv:", v, w, v.Equiv(w))
 
 	// Output:
 	// version: 1.5.3-rc1.4+modified
 	// core: 1.5.3
-	// pre: rc1.4
+	// release: rc1.4
 	// build: modified
 	// clean: 1.5.3-rc1.4
 	// equiv: 1.5.3-rc1.4+modified 1.5.3-rc1.4 true

@@ -8,11 +8,11 @@
 //
 //	v := semver.New(1, 0, 0)
 //
-// The resulting version has no pre-release or build metadata.
+// The resulting version has no release or build metadata.
 //
-// To extend a version with pre-release or build metadata, use:
+// To extend a version with release or build metadata, use:
 //
-//	v2 := v.WithPreRelease("rc1").WithBuild("unstable")
+//	v2 := v.WithRelease("rc1").WithBuild("unstable")
 //
 // To format the version as a string in standard notation, use:
 //
@@ -40,12 +40,12 @@ import (
 // and represents the semantic version "0.0.0".
 type V struct {
 	major, minor, patch string   // The major, minor, and patch versions (non-empty)
-	pre                 []string // Dotted pre-release identifier (if non-empty)
+	release             []string // Dotted release identifier (if non-empty)
 	build               []string // Dotted patch identifier (if non-empty)
 }
 
 // New constructs a [V] with the specified major, minor, and patch versions.
-// The pre-release and build metadata of the resulting value are empty.
+// The release and build metadata of the resulting value are empty.
 // New will panic if any of these values is negative.
 func New(major, minor, patch int) V {
 	return V{major: mustItoa(major), minor: mustItoa(minor), patch: mustItoa(patch)}
@@ -80,9 +80,9 @@ func (v V) Add(dmajor, dminor, dpatch int) V {
 	return v.WithCore(m, i, p)
 }
 
-// Core returns a copy of v with its pre-release and build metadata cleared,
+// Core returns a copy of v with its release and build metadata cleared,
 // corresponding to the "core" version ID (major.minor.patch).
-func (v V) Core() V { v.pre = nil; v.build = nil; return v }
+func (v V) Core() V { v.release = nil; v.build = nil; return v }
 
 // WithCore returns a copy of v with its core version (major.minor.patch) set.
 // WithCore will panic if any of these values is negative.
@@ -91,13 +91,13 @@ func (v V) WithCore(major, minor, patch int) V {
 	return v
 }
 
-// PreRelease reports the pre-release string, if present.
+// Release reports the release string, if present.
 // The resulting string does not include the "-" prefix.
-func (v V) PreRelease() string { return strings.Join(v.pre, ".") }
+func (v V) Release() string { return strings.Join(v.release, ".") }
 
-// WithPreRelease returns a copy of v with its pre-release ID set.
-// If id == "", the resulting version has no pre-release ID.
-func (v V) WithPreRelease(id string) V { v.pre = cleanWords(id); return v }
+// WithRelease returns a copy of v with its release ID set.
+// If id == "", the resulting version has no release ID.
+func (v V) WithRelease(id string) V { v.release = cleanWords(id); return v }
 
 // Build reports the build metadata string, if present.
 // The resulting string does not include the "+" prefix.
@@ -112,7 +112,7 @@ func (v V) String() string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "%s.%s.%s",
 		cmp.Or(v.major, "0"), cmp.Or(v.minor, "0"), cmp.Or(v.patch, "0"))
-	if pr := v.PreRelease(); pr != "" {
+	if pr := v.Release(); pr != "" {
 		fmt.Fprint(&sb, "-", pr)
 	}
 	if b := v.Build(); b != "" {
@@ -133,13 +133,13 @@ func Compare(v1, v2 V) int {
 	if c := cmp.Compare(mustVal(v1.patch), mustVal(v2.patch)); c != 0 {
 		return c
 	}
-	n1, n2 := len(v1.pre), len(v2.pre)
+	n1, n2 := len(v1.release), len(v2.release)
 	if n1 == 0 && n2 != 0 {
-		return 1 // non-empty prerelease precedes empty
+		return 1 // non-empty release precedes empty
 	} else if n1 != 0 && n2 == 0 {
-		return -1 // non-empty prerelease precedes empty
+		return -1 // non-empty release precedes empty
 	}
-	return slices.CompareFunc(v1.pre, v2.pre, compareWord)
+	return slices.CompareFunc(v1.release, v2.release, compareWord)
 
 	// N.B. Build metadata are not considered for comparisons.
 }
@@ -175,17 +175,17 @@ func IsValid(s string) bool { _, err := Parse(s); return err == nil }
 func Parse(s string) (V, error) {
 	// Grammar: https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions
 
-	// Check for pre-release and build labels.
-	var pre, build string
-	var hasPre, hasBuild bool
+	// Check for release and build labels.
+	var release, build string
+	var hasRelease, hasBuild bool
 	if i := strings.IndexAny(s, "-+"); i >= 0 {
 		rest := s[i:] // N.B. keep the marker
 		s = s[:i]
 
 		if p, ok := strings.CutPrefix(rest, "-"); ok {
-			// rest == "-<pre>[+<build>]"
-			hasPre = true
-			pre, build, hasBuild = strings.Cut(p, "+")
+			// rest == "-<release>[+<build>]"
+			hasRelease = true
+			release, build, hasBuild = strings.Cut(p, "+")
 		} else {
 			// rest == "" or rest == "+<build>"
 			build, hasBuild = strings.CutPrefix(rest, "+")
@@ -209,11 +209,11 @@ func Parse(s string) (V, error) {
 	}
 
 	var err error
-	if hasPre {
-		if pre == "" {
-			return V{}, errors.New("empty pre-release")
-		} else if v.pre, err = parseWords(pre); err != nil {
-			return V{}, fmt.Errorf("invalid pre-release %q: %w", pre, err)
+	if hasRelease {
+		if release == "" {
+			return V{}, errors.New("empty release")
+		} else if v.release, err = parseWords(release); err != nil {
+			return V{}, fmt.Errorf("invalid release %q: %w", release, err)
 		}
 	}
 	if hasBuild {
@@ -232,7 +232,7 @@ func Parse(s string) (V, error) {
 //   - Leading and trailing whitespace is removed.
 //   - A leading "v" is removed, if present.
 //   - Omitted minor or patch versions are set to "0".
-//   - Empty pre-release and build labels are removed.
+//   - Empty release and build labels are removed.
 //
 // If a major version is not present, Clean returns s entirely unmodified.
 // Otherwise, except as described above, the input is not modified. In
@@ -240,12 +240,12 @@ func Parse(s string) (V, error) {
 // the result may (still) not be a valid version string.
 func Clean(s string) string {
 	base := strings.TrimPrefix(strings.TrimSpace(s), "v")
-	var pre, build string
+	var release, build string
 	if i := strings.IndexAny(base, "-+"); i >= 0 {
 		tail := base[i:]
 		base = base[:i]
 		if p, ok := strings.CutPrefix(tail, "-"); ok {
-			pre, build, _ = strings.Cut(p, "+")
+			release, build, _ = strings.Cut(p, "+")
 		} else {
 			build = p[1:] // drop "+"
 		}
@@ -262,7 +262,7 @@ func Clean(s string) string {
 		}
 	}
 	out := strings.Join(ps, ".")
-	if p := joinCleanWords(pre); p != "" {
+	if p := joinCleanWords(release); p != "" {
 		out += "-" + p
 	}
 	if p := joinCleanWords(build); p != "" {

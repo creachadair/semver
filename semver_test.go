@@ -41,7 +41,7 @@ func TestOrder(t *testing.T) {
 		{"1.1.5", "1.1.2-rel-blah", 1},
 		{"1.1.5-rel-blah", "1.1.2", 1},
 
-		// Pre-releases are compared lexicographically.
+		// Releases are compared lexicographically.
 		// Examples from https://semver.org/#spec-item-11
 		{"1.0.0-alpha", "1.0.0-alpha.1", -1},
 		{"1.0.0-alpha.1", "1.0.0-alpha.beta", -1},
@@ -117,14 +117,14 @@ func TestFormat(t *testing.T) {
 		{semver.New(0, 0, 0), "0.0.0"},
 		{semver.New(1, 2, 120), "1.2.120"},
 		{semver.New(1, 0, 2).WithBuild("unstable"), "1.0.2+unstable"},
-		{semver.New(5, 1, 0).WithPreRelease("rc1.c030"), "5.1.0-rc1.c030"},
-		{semver.New(0, 0, 9).WithBuild("custom").WithPreRelease("alpha5.2"), "0.0.9-alpha5.2+custom"},
+		{semver.New(5, 1, 0).WithRelease("rc1.c030"), "5.1.0-rc1.c030"},
+		{semver.New(0, 0, 9).WithBuild("custom").WithRelease("alpha5.2"), "0.0.9-alpha5.2+custom"},
 		{semver.MustParse("1.2.3-four.five+six").Core(), "1.2.3"},
 		{semver.MustParse("1.2.3+four").WithBuild(""), "1.2.3"},
-		{semver.V{}.WithPreRelease("rc1.2.3-4"), "0.0.0-rc1.2.3-4"},
+		{semver.V{}.WithRelease("rc1.2.3-4"), "0.0.0-rc1.2.3-4"},
 		{semver.New(1, 2, 3).WithBuild("a..b."), "1.2.3+a.b"},
-		{semver.New(4, 5, 6).WithPreRelease("a..b."), "4.5.6-a.b"},
-		{semver.New(7, 8, 9).WithBuild("q.").WithPreRelease(".r"), "7.8.9-r+q"},
+		{semver.New(4, 5, 6).WithRelease("a..b."), "4.5.6-a.b"},
+		{semver.New(7, 8, 9).WithBuild("q.").WithRelease(".r"), "7.8.9-r+q"},
 	}
 	for _, tc := range tests {
 		if got := tc.input.String(); got != tc.want {
@@ -150,13 +150,13 @@ func TestErrors(t *testing.T) {
 		{"05.0.0", "major: leading zeroes"},
 		{"1.06.1", "minor: leading zeroes"},
 		{"1.2.07", "patch: leading zeroes"},
-		{"2.4.0-", "empty pre-release"},
+		{"2.4.0-", "empty release"},
 		{"1.0.0+", "empty build"},
 		{"2.4.0-ok+", "empty build"},
-		{"0.1.2-a..b", `pre-release "a..b": empty word (pos 2)`},
+		{"0.1.2-a..b", `release "a..b": empty word (pos 2)`},
 		{"1.2.3+a.b.", `build "a.b.": empty word (pos 3)`},
 		{"4.5.6-ok.123+.a", `build ".a": empty word (pos 1)`},
-		{"1.0.0-bo?gus", `pre-release "bo?gus": invalid char (pos 1)`},
+		{"1.0.0-bo?gus", `release "bo?gus": invalid char (pos 1)`},
 		{"1.4.0+is.b@d", `build "is.b@d": invalid char (pos 2)`},
 	}
 	for _, tc := range tests {
