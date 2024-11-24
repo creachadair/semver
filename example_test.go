@@ -53,3 +53,14 @@ func ExampleV_WithCore() {
 	// v: 1.1.3+unstable
 	// w: 2.0.3+unstable
 }
+
+func ExampleV_Add() {
+	v := semver.New(1, 5, 3)
+	w := v.Add(0, -10, 2)
+
+	fmt.Println("v:", v)
+	fmt.Println("w:", w)
+	// Output:
+	// v: 1.5.3
+	// w: 1.0.5
+}
