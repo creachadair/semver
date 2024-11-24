@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/creachadair/mds/mtest"
 	"github.com/creachadair/semver"
 )
 
@@ -256,6 +255,13 @@ func TestWithCore(t *testing.T) {
 		{"1.5.3", 0, 1, 1, "0.1.1"},
 		{"0.1.2", 5, 1, 0, "5.1.0"},
 		{"1.0.5-rc5+dirty", 1, 1, 3, "1.1.3-rc5+dirty"},
+
+		// Negative arguments leave the existing version intact.
+		{"1.5.3", -1, -1, -1, "1.5.3"},
+		{"2.4.6", 1, -1, -1, "1.4.6"},
+		{"2.4.6", -1, 1, -1, "2.1.6"},
+		{"2.4.6", -1, -1, 1, "2.4.1"},
+		{"3.5.9-alpha9.3.niner", 4, -1, 3, "4.5.3-alpha9.3.niner"},
 	}
 	for _, tc := range tests {
 		input, want := mustParse(t, tc.input), mustParse(t, tc.want)
@@ -266,9 +272,6 @@ func TestWithCore(t *testing.T) {
 			)
 		}
 	}
-	mtest.MustPanic(t, func() { semver.V{}.WithCore(-1, 0, 0) })
-	mtest.MustPanic(t, func() { semver.V{}.WithCore(0, -1, 0) })
-	mtest.MustPanic(t, func() { semver.V{}.WithCore(0, 0, -1) })
 }
 
 func TestAdd(t *testing.T) {

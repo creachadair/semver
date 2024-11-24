@@ -42,3 +42,14 @@ func ExampleClean() {
 	// dirty: " v1.2-rc3..1\t"
 	// clean: 1.2.0-rc3.1
 }
+
+func ExampleV_WithCore() {
+	v := semver.MustParse("1.1.3+unstable")
+	w := v.WithCore(2, 0, -1)
+
+	fmt.Println("v:", v)
+	fmt.Println("w:", w)
+	// Output:
+	// v: 1.1.3+unstable
+	// w: 2.0.3+unstable
+}
