@@ -33,6 +33,16 @@ func Example() {
 	// equiv: 1.5.3-rc1.4+modified 1.5.3-rc1.4 true
 }
 
+func ExampleParse() {
+	v, err := semver.Parse(semver.Clean(" v1.2-alpha..9.\n"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(v)
+	// Output:
+	// 1.2.0-alpha.9
+}
+
 func ExampleClean() {
 	const dirty = " v1.2-rc3..1\t"
 

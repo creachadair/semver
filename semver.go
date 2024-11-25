@@ -22,6 +22,11 @@
 //
 //	v, err := semver.Parse("1.0.0-rc1.2+unstable")
 //
+// If you have a partial version string, with some of the parts not specified
+// or a "v" prefix, use [Clean] to normalize it:
+//
+//	v, err := semver.Parse(semver.Clean("v1.2-alpha.9"))
+//
 // [Semantic Version]: https://semver.org/
 package semver
 
