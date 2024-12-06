@@ -188,6 +188,8 @@ func TestClean(t *testing.T) {
 		{"1", "1.0.0"},
 		{"1.5", "1.5.0"},
 		{"3.1.4", "3.1.4"},
+		{"3..1", "3.0.1"},
+		{"4..", "4.0.0"},
 
 		// Leading and trailing spaces and leading "v" are removed.
 		{" 1 ", "1.0.0"},
