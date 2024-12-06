@@ -136,6 +136,19 @@ func (v V) String() string {
 
 // Compare compares v1 and v2 in standard semantic version order.
 // It returns -1 if v1 < v2, 0 if v1 == v2, and +1 if v1 > v2.
+//
+// Semantic versions are compared in lexicographic order by major, minor,
+// patch, and pre-release labels. The core major, minor, and patch labels are
+// compared numerically, with smaller values ordered earlier.
+//
+// Pre-release labels are split into non-empty words separated by period (".")
+// and compared lexicographically. Words comprising only digits are compared
+// numerically; otherwise they are compared lexicographically as strings.
+// When the two lists are of unequal length and the shorter list is equal to a
+// prefix of the longer one, the longer list is ordered earlier.
+//
+// Build metadata are ignored for comparison, so if v1 and v2 are equal apart
+// from their build metadata, Compare(v1, v2) reports 0.
 func Compare(v1, v2 V) int {
 	if c := cmp.Compare(mustVal(v1.major), mustVal(v2.major)); c != 0 {
 		return c
