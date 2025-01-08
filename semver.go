@@ -44,9 +44,9 @@ import (
 // V represents a parsed semantic version label. A zero value is ready for use,
 // and represents the semantic version "0.0.0".
 type V struct {
-	major, minor, patch string   // The major, minor, and patch versions (non-empty)
-	release             []string // Dotted release identifier (if non-empty)
-	build               []string // Dotted patch identifier (if non-empty)
+	major, minor, patch string // The major, minor, and patch versions (non-empty)
+	release             string // Dotted release identifier (if non-empty)
+	build               string // Dotted patch identifier (if non-empty)
 }
 
 // New constructs a [V] with the specified major, minor, and patch versions.
@@ -87,10 +87,10 @@ func (v V) Add(dmajor, dminor, dpatch int) V {
 
 // Core returns a copy of v with its release and build metadata cleared,
 // corresponding to the "core" version ID (major.minor.patch).
-func (v V) Core() V { v.release = nil; v.build = nil; return v }
+func (v V) Core() V { v.release = ""; v.build = ""; return v }
 
 // WithCore returns a copy of v with its core version (major.minor.patch) set.
-// If any argument is < 0, the corresponding version copied unmodified from v.
+// For any argument < 0, the corresponding version is copied unmodified from v.
 func (v V) WithCore(major, minor, patch int) V {
 	if major >= 0 {
 		v.major = mustItoa(major)
@@ -106,30 +106,30 @@ func (v V) WithCore(major, minor, patch int) V {
 
 // Release reports the release string, if present.
 // The resulting string does not include the "-" prefix.
-func (v V) Release() string { return strings.Join(v.release, ".") }
+func (v V) Release() string { return v.release }
 
 // WithRelease returns a copy of v with its release ID set.
 // If id == "", the resulting version has no release ID.
-func (v V) WithRelease(id string) V { v.release = cleanWords(id); return v }
+func (v V) WithRelease(id string) V { v.release = joinCleanWords(id); return v }
 
 // Build reports the build metadata string, if present.
 // The resulting string does not include the "+" prefix.
-func (v V) Build() string { return strings.Join(v.build, ".") }
+func (v V) Build() string { return v.build }
 
 // WithBuild returns a copy of v with its build metadata set.
 // If meta == "", the resulting version has no build metadata.
-func (v V) WithBuild(meta string) V { v.build = cleanWords(meta); return v }
+func (v V) WithBuild(meta string) V { v.build = joinCleanWords(meta); return v }
 
 // String returns the complete canonical string representation of v.
 func (v V) String() string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "%s.%s.%s",
 		cmp.Or(v.major, "0"), cmp.Or(v.minor, "0"), cmp.Or(v.patch, "0"))
-	if pr := v.Release(); pr != "" {
-		fmt.Fprint(&sb, "-", pr)
+	if v.release != "" {
+		fmt.Fprint(&sb, "-", v.release)
 	}
-	if b := v.Build(); b != "" {
-		fmt.Fprint(&sb, "+", b)
+	if v.build != "" {
+		fmt.Fprint(&sb, "+", v.build)
 	}
 	return sb.String()
 }
@@ -159,13 +159,13 @@ func Compare(v1, v2 V) int {
 	if c := cmp.Compare(mustVal(v1.patch), mustVal(v2.patch)); c != 0 {
 		return c
 	}
-	n1, n2 := len(v1.release), len(v2.release)
-	if n1 == 0 && n2 != 0 {
-		return 1 // non-empty release precedes empty
-	} else if n1 != 0 && n2 == 0 {
-		return -1 // non-empty release precedes empty
+	// A non-empty release precedes an empty one.
+	if v1.release == "" && v2.release != "" {
+		return 1
+	} else if v1.release != "" && v2.release == "" {
+		return -1
 	}
-	return slices.CompareFunc(v1.release, v2.release, compareWord)
+	return compareWords(v1.release, v2.release)
 
 	// N.B. Build metadata are not considered for comparisons.
 }
@@ -234,20 +234,21 @@ func Parse(s string) (V, error) {
 		return V{}, fmt.Errorf("invalid patch: %w", err)
 	}
 
-	var err error
 	if hasRelease {
 		if release == "" {
 			return V{}, errors.New("empty release")
-		} else if v.release, err = parseWords(release); err != nil {
+		} else if err := checkWords(release); err != nil {
 			return V{}, fmt.Errorf("invalid release %q: %w", release, err)
 		}
+		v.release = release
 	}
 	if hasBuild {
 		if build == "" {
 			return V{}, errors.New("empty build metadata")
-		} else if v.build, err = parseWords(build); err != nil {
+		} else if err := checkWords(build); err != nil {
 			return V{}, fmt.Errorf("invalid build %q: %w", build, err)
 		}
+		v.build = build
 	}
 	return v, nil
 }
@@ -343,18 +344,26 @@ func checkVNum(s string) error {
 	return nil
 }
 
-// parseWords parses s as a dot-separated sequence of words.
+// checkWords parses s as a dot-separated sequence of words and reports an
+// error if they are invalid.
+//
 // Precondition: s != ""
-func parseWords(s string) ([]string, error) {
-	ws := splitWords(s)
-	for i, w := range ws {
+func checkWords(s string) error {
+	for i, w := range splitWords(s) {
 		if w == "" {
-			return nil, fmt.Errorf("empty word (pos %d)", i+1)
+			return fmt.Errorf("empty word (pos %d)", i+1)
 		} else if !isWord(w) {
-			return nil, fmt.Errorf("invalid char (pos %d)", i+1)
+			return fmt.Errorf("invalid char (pos %d)", i+1)
 		}
 	}
-	return ws, nil
+	return nil
+}
+
+// compareWords compares a and b lexicographically as a dot-separated sequence
+// of substrings in which each corresponding substring, using compareWord to
+// compare corresponding elements.
+func compareWords(a, b string) int {
+	return slices.CompareFunc(strings.Split(a, "."), strings.Split(b, "."), compareWord)
 }
 
 // compareWord compares a and b. If both comprise only digits, the comparison
