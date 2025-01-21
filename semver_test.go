@@ -299,3 +299,26 @@ func TestAdd(t *testing.T) {
 		}
 	}
 }
+
+func TestKey(t *testing.T) {
+	tests := []struct {
+		input, want string
+	}{
+		{"1.0.0", "1.0.0"},
+		{"1.0", "1.0.0"},
+		{"v0.2-rc1", "0.2.0-rc1"},
+		{"0.1.2+foo", "0.1.2"},
+		{"1.1.3-alpha+beta", "1.1.3-alpha"},
+		{"2.0.1+beta-gamma", "2.0.1"},
+		{"0.1.5-foo..bar.+baz", "0.1.5-foo.bar"},
+	}
+	for _, tc := range tests {
+		v := semver.MustParse(semver.Clean(tc.input))
+		want := semver.MustParse(tc.want)
+
+		got := v.Key()
+		if got != want {
+			t.Errorf("[%v].Key(): got %q, want %q", v, got, tc.want)
+		}
+	}
+}

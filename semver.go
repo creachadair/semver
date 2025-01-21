@@ -27,6 +27,16 @@
 //
 //	v, err := semver.Parse(semver.Clean("v1.2-alpha.9"))
 //
+// # Comparison
+//
+// A [V] is comparable, and can be used as a map key; however, the rules of
+// semantic version comparison mean that equivalent semantic versions may not
+// be structurally equal. In particular, build metadata are not considered in
+// the comparison of order or equivalence of versions.
+// Use [V.Equiv] to check whether versions are semantically equivalent.
+//
+// If using [V] values as map keys, consider using [V.Key].
+//
 // [Semantic Version]: https://semver.org/
 package semver
 
@@ -66,8 +76,12 @@ func (v V) After(w V) bool { return Compare(v, w) > 0 }
 
 // Equiv reports whether v and w are equivalent versions. Note that this is
 // distinct from equality, because semantic version comparison ignores build
-// metadata. See also [Compare].
-func (v V) Equiv(w V) bool { return Compare(v, w) == 0 }
+// metadata.
+func (v V) Equiv(w V) bool { return v.Key() == w.Key() }
+
+// Key returns a copy of v with empty build metadata, suitable for use as a map
+// key or for equality comparison. This is equivalent to v.WithBuild("").
+func (v V) Key() V { v.build = ""; return v }
 
 // Major reports the major version as an int.
 func (v V) Major() int { return mustVal(v.major) }
