@@ -19,7 +19,7 @@ func Example() {
 	fmt.Println("core:", v.Core())
 	fmt.Println("release:", v.Release())
 	fmt.Println("build:", v.Build())
-	fmt.Println("clean:", v.WithBuild(""))
+	fmt.Println("clean:", v.Key())
 
 	w := semver.New(1, 5, 3).WithRelease("rc1.4")
 	fmt.Println("equiv:", v, w, v.Equiv(w))
