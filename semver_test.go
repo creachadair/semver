@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/creachadair/mds/mtest"
 	"github.com/creachadair/semver"
 )
 
@@ -17,6 +18,25 @@ func mustParse(t *testing.T, s string) semver.V {
 		t.Fatalf("Parse %q: %v", s, err)
 	}
 	return v
+}
+
+func TestNew(t *testing.T) {
+	tests := []struct {
+		m, i, p int
+		want    string
+	}{
+		{0, 0, 0, "0.0.0"},
+		{1, 0, 1, "1.0.1"},
+		{3, 4, 9, "3.4.9"},
+	}
+	for _, tc := range tests {
+		if got := semver.New(tc.m, tc.i, tc.p); got.String() != tc.want {
+			t.Errorf("New(%d, %d, %d): got %q, want %q", tc.m, tc.i, tc.p, got, tc.want)
+		}
+	}
+	mtest.MustPanicf(t, func() { semver.New(0, 0, -1) }, "New with negative version should panic")
+	mtest.MustPanicf(t, func() { semver.New(0, -1, 2) }, "New with negative version should panic")
+	mtest.MustPanicf(t, func() { semver.New(-1, 0, 4) }, "New with negative version should panic")
 }
 
 func TestOrder(t *testing.T) {
