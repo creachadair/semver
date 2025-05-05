@@ -233,9 +233,9 @@ func Parse(s string) (V, error) {
 	}
 
 	// Parse the base version: major '.' minor '.' patch
-	ps := splitWords(s)
-	if len(ps) != 3 {
-		return V{}, fmt.Errorf("wrong length (got %d, want 3)", len(ps))
+	ps, err := split3(s)
+	if err != nil {
+		return V{}, err
 	}
 	v := V{major: ps[0], minor: ps[1], patch: ps[2]}
 	if err := checkVNum(v.major); err != nil {
@@ -363,12 +363,18 @@ func checkVNum(s string) error {
 //
 // Precondition: s != ""
 func checkWords(s string) error {
-	for i, w := range splitWords(s) {
+	var i int
+	for {
+		w, rest, ok := strings.Cut(s, ".")
 		if w == "" {
 			return fmt.Errorf("empty word (pos %d)", i+1)
 		} else if !isWord(w) {
 			return fmt.Errorf("invalid char (pos %d)", i+1)
+		} else if !ok {
+			break
 		}
+		s = rest
+		i++
 	}
 	return nil
 }
@@ -399,18 +405,32 @@ func mustItoa(v int) string {
 	return strconv.Itoa(v)
 }
 
-// splitWords returns the dot-separated words of s, or nil if s == "".
-func splitWords(s string) []string {
-	if s == "" {
-		return nil
+// split3 returns the three dot-separated words of s ("a.b.c").  It reports an
+// error if there are not exactly three such words. It does not check that the
+// words are non-empty or have any particular content.
+func split3(s string) (ss [3]string, err error) {
+	ndot := strings.Count(s, ".")
+	if ndot != 2 {
+		if s != "" {
+			ndot++
+		}
+		return ss, fmt.Errorf("wrong length (got %d, want 3)", ndot)
 	}
-	return strings.Split(s, ".")
+	d1 := strings.Index(s, ".")
+	ss[0], s = s[:d1], s[d1+1:]
+	d2 := strings.Index(s, ".")
+	ss[1] = s[:d2]
+	ss[2] = s[d2+1:]
+	return
 }
 
-// cleanWords splits s into words, with all empty words discarded.
-func cleanWords(s string) []string {
-	return slice.Partition(splitWords(s), func(v string) bool { return v != "" })
-}
+func isNonEmpty(s string) bool { return s != "" }
 
 // joinCleanWords returns a copy of s with all empty words removed.
-func joinCleanWords(s string) string { return strings.Join(cleanWords(s), ".") }
+func joinCleanWords(s string) string {
+	if !strings.Contains(s, ".") {
+		return s
+	}
+	clean := slice.Partition(strings.Split(s, "."), isNonEmpty)
+	return strings.Join(clean, ".")
+}
