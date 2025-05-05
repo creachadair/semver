@@ -281,6 +281,10 @@ func Parse(s string) (V, error) {
 // the result may (still) not be a valid version string.
 func Clean(s string) string {
 	base := strings.TrimPrefix(strings.TrimSpace(s), "v")
+	if _, err := Parse(base); err == nil {
+		return base // already valid
+	}
+
 	var release, build string
 	if i := strings.IndexAny(base, "-+"); i >= 0 {
 		tail := base[i:]
@@ -291,18 +295,20 @@ func Clean(s string) string {
 			build = p[1:] // drop "+"
 		}
 	}
-	ps := strings.SplitN(base, ".", 3)
-	if len(ps) == 0 || ps[0] == "" {
+	ps, _ := split3(base)
+	if ps[0] == "" {
 		return s
 	}
-	for i := 1; i < 3; i++ {
-		if i >= len(ps) {
-			ps = append(ps, "0")
-		} else if ps[i] == "" {
+	out, mod := base, false
+	for i := range ps {
+		if ps[i] == "" {
 			ps[i] = "0"
+			mod = true
 		}
 	}
-	out := strings.Join(ps, ".")
+	if mod {
+		out = ps[0] + "." + ps[1] + "." + ps[2]
+	}
 	if p := joinCleanWords(release); p != "" {
 		out += "-" + p
 	}
@@ -409,18 +415,25 @@ func mustItoa(v int) string {
 // error if there are not exactly three such words. It does not check that the
 // words are non-empty or have any particular content.
 func split3(s string) (ss [3]string, err error) {
-	ndot := strings.Count(s, ".")
-	if ndot != 2 {
-		if s != "" {
-			ndot++
-		}
-		return ss, fmt.Errorf("wrong length (got %d, want 3)", ndot)
+	if s == "" {
+		return ss, countError(0)
 	}
 	d1 := strings.Index(s, ".")
+	if d1 < 0 {
+		ss[0] = s
+		return ss, countError(1)
+	}
 	ss[0], s = s[:d1], s[d1+1:]
 	d2 := strings.Index(s, ".")
+	if d2 < 0 {
+		ss[1] = s
+		return ss, countError(2)
+	}
 	ss[1] = s[:d2]
 	ss[2] = s[d2+1:]
+	if n := strings.Count(ss[2], "."); n != 0 {
+		return ss, countError(n + 3)
+	}
 	return
 }
 
@@ -428,9 +441,18 @@ func isNonEmpty(s string) bool { return s != "" }
 
 // joinCleanWords returns a copy of s with all empty words removed.
 func joinCleanWords(s string) string {
-	if !strings.Contains(s, ".") {
-		return s
+	t := strings.Trim(s, ".")
+	if !strings.Contains(t, ".") {
+		return t // all one word
+	} else if !strings.Contains(t, "..") {
+		return t // no empty words
 	}
-	clean := slice.Partition(strings.Split(s, "."), isNonEmpty)
+
+	// Reaching here, we have at least some nonempty words.
+	clean := slice.Partition(strings.Split(t, "."), isNonEmpty)
 	return strings.Join(clean, ".")
 }
+
+type countError int
+
+func (c countError) Error() string { return fmt.Sprintf("wrong length (got %d, want 3)", c) }

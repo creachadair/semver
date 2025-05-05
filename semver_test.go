@@ -353,3 +353,22 @@ func BenchmarkParse(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkClean(b *testing.B) {
+	b.Run("Valid", func(b *testing.B) {
+		const alreadyClean = "1.2.3-four.five+six.seven"
+
+		for b.Loop() {
+			_ = semver.Clean(alreadyClean)
+		}
+	})
+
+	b.Run("Invalid", func(b *testing.B) {
+		const unclean = " v3-.apple.+pear..plum."
+		b.Logf("Input: %q\nOutput: %q", unclean, semver.Clean(unclean))
+
+		for b.Loop() {
+			_ = semver.Clean(unclean)
+		}
+	})
+}
