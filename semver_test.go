@@ -342,3 +342,14 @@ func TestKey(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkParse(b *testing.B) {
+	const input = "1.2.3-four+five"
+
+	for b.Loop() {
+		_, err := semver.Parse(input)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
