@@ -47,8 +47,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/creachadair/mds/slice"
 )
 
 // V represents a parsed semantic version label. A zero value is ready for use,
@@ -437,20 +435,13 @@ func split3(s string) (ss [3]string, err error) {
 	return
 }
 
-func isNonEmpty(s string) bool { return s != "" }
-
 // joinCleanWords returns a copy of s with all empty words removed.
 func joinCleanWords(s string) string {
 	t := strings.Trim(s, ".")
 	if !strings.Contains(t, ".") {
 		return t // all one word
-	} else if !strings.Contains(t, "..") {
-		return t // no empty words
 	}
-
-	// Reaching here, we have at least some nonempty words.
-	clean := slice.Partition(strings.Split(t, "."), isNonEmpty)
-	return strings.Join(clean, ".")
+	return strings.ReplaceAll(t, "..", ".")
 }
 
 type countError int
