@@ -372,3 +372,19 @@ func BenchmarkClean(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkCompare(b *testing.B) {
+	v1 := semver.MustParse("1.2.3-four.five.six+seven.eight.nine")
+	v2 := semver.MustParse("1.2.3-four.five.six+seven.nine.eleven")
+
+	b.Run("Eq", func(b *testing.B) {
+		for b.Loop() {
+			_ = semver.Compare(v1, v1)
+		}
+	})
+	b.Run("Neq", func(b *testing.B) {
+		for b.Loop() {
+			_ = semver.Compare(v1, v2)
+		}
+	})
+}

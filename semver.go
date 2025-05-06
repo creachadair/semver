@@ -44,7 +44,6 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -383,11 +382,27 @@ func checkWords(s string) error {
 	return nil
 }
 
+func cutWord(s string) (w, rest string) {
+	if i := strings.Index(s, "."); i >= 0 {
+		return s[:i], s[i+1:]
+	}
+	return s, ""
+}
+
 // compareWords compares a and b lexicographically as a dot-separated sequence
 // of substrings in which each corresponding substring, using compareWord to
 // compare corresponding elements.
 func compareWords(a, b string) int {
-	return slices.CompareFunc(strings.Split(a, "."), strings.Split(b, "."), compareWord)
+	for {
+		wa, ra := cutWord(a)
+		wb, rb := cutWord(b)
+		if wa == "" && wb == "" {
+			return 0
+		} else if c := compareWord(wa, wb); c != 0 {
+			return c
+		}
+		a, b = ra, rb
+	}
 }
 
 // compareWord compares a and b. If both comprise only digits, the comparison
