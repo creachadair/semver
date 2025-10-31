@@ -208,7 +208,8 @@ func MustParse(s string) V {
 // IsValid reports whether s is a valid semver string.
 func IsValid(s string) bool { _, err := Parse(s); return err == nil }
 
-// Parse returns the [V] represented by s.
+// Parse returns the [V] represented by s. It reports an error if s is not a
+// valid semantic version string. On success, Parse does not allocate.
 func Parse(s string) (V, error) {
 	// Grammar: https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions
 
@@ -351,12 +352,17 @@ func isWord(s string) bool {
 	return true
 }
 
+var (
+	errNotNumber   = errors.New("not a number")
+	errLeadingZero = errors.New("leading zeroes")
+)
+
 // checkVNum reports an error of s is not a valid version number.
 func checkVNum(s string) error {
 	if _, ok := isNum(s); !ok || s == "" {
-		return errors.New("not a number")
+		return errNotNumber
 	} else if s[0] == '0' && s != "0" {
-		return errors.New("leading zeroes")
+		return errLeadingZero
 	}
 	return nil
 }

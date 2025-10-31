@@ -79,6 +79,9 @@ func TestOrder(t *testing.T) {
 	uniq := make(map[string]bool)
 	for _, tc := range tests {
 		name := fmt.Sprintf("Compare/%s/%s", tc.a, tc.b)
+		t.Run(name+"_alloc", func(t *testing.T) {
+
+		})
 		t.Run(name, func(t *testing.T) {
 			a, b := mustParse(t, tc.a), mustParse(t, tc.b)
 
@@ -344,13 +347,26 @@ func TestKey(t *testing.T) {
 }
 
 func BenchmarkParse(b *testing.B) {
-	const input = "1.2.3-four+five"
-
-	for b.Loop() {
-		_, err := semver.Parse(input)
-		if err != nil {
-			b.Fatal(err)
+	benchInput := func(input string) func(b *testing.B) {
+		return func(b *testing.B) {
+			for b.Loop() {
+				_, err := semver.Parse(input)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
 		}
+	}
+	b.Run("Short", benchInput("1.2.3-four+five"))
+
+	const long = "123456789.9876543210.1234567890000-alpha.bravo.charlie.delta.echo.foxtrot+a.123.456789a.bcdefghijklmnopq-rst"
+	b.Run("Long", benchInput(long))
+
+	// Verify that semver.Parse does not allocate memory.
+	if na := testing.AllocsPerRun(1000, func() {
+		semver.Parse(long)
+	}); na != 0 {
+		b.Errorf("Got %f allocations, want 0", na)
 	}
 }
 
