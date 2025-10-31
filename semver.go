@@ -187,10 +187,10 @@ func Compare(v1, v2 V) int {
 // If either string is not a valid semver after cleaning, the two strings are
 // compared in ordinary lexicographic order.
 func CompareStrings(s1, s2 string) int {
-	v1, err1 := Parse(Clean(s1))
-	v2, err2 := Parse(Clean(s2))
-	if err1 == nil && err2 == nil {
-		return Compare(v1, v2)
+	if v1, _, ok := parseClean(s1); ok {
+		if v2, _, ok := parseClean(s2); ok {
+			return Compare(v1, v2)
+		}
 	}
 	return cmp.Compare(s1, s2)
 }
@@ -237,28 +237,28 @@ func Parse(s string) (V, error) {
 	}
 	v := V{major: ps[0], minor: ps[1], patch: ps[2]}
 	if err := checkVNum(v.major); err != nil {
-		return V{}, fmt.Errorf("invalid major: %w", err)
+		return V{}, invalidThingError{"major", v.major, err}
 	}
 	if err := checkVNum(v.minor); err != nil {
-		return V{}, fmt.Errorf("invalid minor: %w", err)
+		return V{}, invalidThingError{"minor", v.minor, err}
 	}
 	if err := checkVNum(v.patch); err != nil {
-		return V{}, fmt.Errorf("invalid patch: %w", err)
+		return V{}, invalidThingError{"patch", v.patch, err}
 	}
 
 	if hasRelease {
 		if release == "" {
-			return V{}, errors.New("empty release")
+			return V{}, errEmptyRelease
 		} else if err := checkWords(release); err != nil {
-			return V{}, fmt.Errorf("invalid release %q: %w", release, err)
+			return V{}, invalidThingError{"release", release, err}
 		}
 		v.release = release
 	}
 	if hasBuild {
 		if build == "" {
-			return V{}, errors.New("empty build metadata")
+			return V{}, errEmptyBuild
 		} else if err := checkWords(build); err != nil {
-			return V{}, fmt.Errorf("invalid build %q: %w", build, err)
+			return V{}, invalidThingError{"build", build, err}
 		}
 		v.build = build
 	}
@@ -278,11 +278,19 @@ func Parse(s string) (V, error) {
 // particular, if s contains invalid characters or non-numeric version numbers,
 // the result may (still) not be a valid version string.
 func Clean(s string) string {
-	base := strings.TrimPrefix(strings.TrimSpace(s), "v")
-	if _, err := Parse(base); err == nil {
-		return base // already valid
+	if _, clean, ok := parseClean(s); ok {
+		return clean
 	}
+	return s
+}
 
+// parseClean cleans s according to the rules of [Clean] and reports whether
+// the resulting string was valid. If so, it returns the parsed [V] for it.
+func parseClean(s string) (V, string, bool) {
+	base := strings.TrimPrefix(strings.TrimSpace(s), "v")
+	if v, err := Parse(base); err == nil {
+		return v, base, true // already valid
+	}
 	var release, build string
 	if i := strings.IndexAny(base, "-+"); i >= 0 {
 		tail := base[i:]
@@ -295,16 +303,17 @@ func Clean(s string) string {
 	}
 	ps, _ := split3(base)
 	if ps[0] == "" {
-		return s
+		return V{}, s, false // N.B. unmodified, not stripped
 	}
-	out, mod := base, false
+	out, modified := base, false
 	for i := range ps {
 		if ps[i] == "" {
 			ps[i] = "0"
-			mod = true
+			modified = true
 		}
 	}
-	if mod {
+	if modified {
+		// Only construct a new string if something changed.
 		out = ps[0] + "." + ps[1] + "." + ps[2]
 	}
 	if p := joinCleanWords(release); p != "" {
@@ -313,7 +322,8 @@ func Clean(s string) string {
 	if p := joinCleanWords(build); p != "" {
 		out += "+" + p
 	}
-	return out
+	v, err := Parse(out)
+	return v, out, err == nil
 }
 
 // mustVal returns the integer represented by s, or panics.
@@ -352,9 +362,12 @@ func isWord(s string) bool {
 	return true
 }
 
+// Sentinel errors, to avoid allocation during a parse.
 var (
-	errNotNumber   = errors.New("not a number")
-	errLeadingZero = errors.New("leading zeroes")
+	errEmptyBuild   = errors.New("empty build metadata")
+	errEmptyRelease = errors.New("empty release")
+	errLeadingZero  = errors.New("leading zeroes")
+	errNotNumber    = errors.New("not a number")
 )
 
 // checkVNum reports an error of s is not a valid version number.
@@ -376,9 +389,9 @@ func checkWords(s string) error {
 	for {
 		w, rest, ok := strings.Cut(s, ".")
 		if w == "" {
-			return fmt.Errorf("empty word (pos %d)", i+1)
+			return emptyWordPosError(i + 1)
 		} else if !isWord(w) {
-			return fmt.Errorf("invalid char (pos %d)", i+1)
+			return invalidCharPosError(i + 1)
 		} else if !ok {
 			break
 		}
@@ -468,3 +481,21 @@ func joinCleanWords(s string) string {
 type countError int
 
 func (c countError) Error() string { return fmt.Sprintf("wrong length (got %d, want 3)", c) }
+
+type emptyWordPosError int
+
+func (e emptyWordPosError) Error() string { return fmt.Sprintf("empty word (pos %d)", int(e)) }
+
+type invalidCharPosError int
+
+func (e invalidCharPosError) Error() string { return fmt.Sprintf("invalid char (pos %d)", int(e)) }
+
+type invalidThingError struct {
+	label, thing string
+	err          error
+}
+
+func (e invalidThingError) Error() string {
+	return fmt.Sprintf("invalid %s %q: %v", e.label, e.thing, e.err)
+}
+func (e invalidThingError) Unwrap() error { return e.err }

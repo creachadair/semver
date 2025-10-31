@@ -163,15 +163,15 @@ func TestErrors(t *testing.T) {
 		{"", "wrong length (got 0"},
 		{"1", "wrong length (got 1"},
 		{"1.0", "wrong length (got 2"},
-		{"..", "major: not a number"},
-		{"1..", "minor: not a number"},
-		{"1.1.", "patch: not a number"},
-		{"q.0.3", "major: not a number"},
-		{"1.q.0", "minor: not a number"},
-		{"1.0.q", "patch: not a number"},
-		{"05.0.0", "major: leading zeroes"},
-		{"1.06.1", "minor: leading zeroes"},
-		{"1.2.07", "patch: leading zeroes"},
+		{"..", `major "": not a number`},
+		{"1..", `minor "": not a number`},
+		{"1.1.", `patch "": not a number`},
+		{"q.0.3", `major "q": not a number`},
+		{"1.q.0", `minor "q": not a number`},
+		{"1.0.q", `patch "q": not a number`},
+		{"05.0.0", `major "05": leading zeroes`},
+		{"1.06.1", `minor "06": leading zeroes`},
+		{"1.2.07", `patch "07": leading zeroes`},
 		{"2.4.0-", "empty release"},
 		{"1.0.0+", "empty build"},
 		{"2.4.0-ok+", "empty build"},
@@ -362,11 +362,23 @@ func BenchmarkParse(b *testing.B) {
 	const long = "123456789.9876543210.1234567890000-alpha.bravo.charlie.delta.echo.foxtrot+a.123.456789a.bcdefghijklmnopq-rst"
 	b.Run("Long", benchInput(long))
 
-	// Verify that semver.Parse does not allocate memory.
+	// Verify that semver.Parse does not allocate memory on a valid input.
 	if na := testing.AllocsPerRun(1000, func() {
 		semver.Parse(long)
 	}); na != 0 {
-		b.Errorf("Got %f allocations, want 0", na)
+		b.Errorf("Valid input: saw %f allocations, want 0", na)
+	}
+
+	// Verify that semver.Parse does not allocate memory on an invalid input.
+	// Allow 1 allocation for the error that is reported (which is interface boxed).
+	const longBad = "123456789.9876543210.1234567890000-alpha.bravo.charlie.delta.echo.foxtrot+a.123.456789a.bcdefghijklmnopq-***...."
+	if _, err := semver.Parse(longBad); err == nil {
+		b.Errorf("Parse %q: unexpected success", longBad)
+	}
+	if na := testing.AllocsPerRun(1000, func() {
+		semver.Parse(longBad)
+	}); na > 1 {
+		b.Errorf("Invalid input: saw %f allocations, want 0", na)
 	}
 }
 
