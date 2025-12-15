@@ -145,6 +145,23 @@ func (v V) String() string {
 	return sb.String()
 }
 
+// MarshalText implements the [encoding.TextMarshaler] interface.
+// This implementation never reports an error, and returns the same
+// text as [V.String].
+func (v V) MarshalText() ([]byte, error) { return []byte(v.String()), nil }
+
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+// It accepts the same grammar as [Parse] but allows and ignores a
+// leading "v" if one is present.
+func (v *V) UnmarshalText(text []byte) error {
+	parsed, err := Parse(strings.TrimPrefix(string(text), "v"))
+	if err != nil {
+		return err
+	}
+	*v = parsed
+	return nil
+}
+
 // Compare compares v1 and v2 in standard semantic version order.
 // It returns -1 if v1 < v2, 0 if v1 == v2, and +1 if v1 > v2.
 //

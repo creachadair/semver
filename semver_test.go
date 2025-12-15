@@ -346,6 +346,59 @@ func TestKey(t *testing.T) {
 	}
 }
 
+func TestMarshalText(t *testing.T) {
+	tests := []struct {
+		input semver.V
+		want  string
+	}{
+		{semver.V{}, "0.0.0"},
+		{semver.New(1, 0, 3), "1.0.3"},
+		{semver.New(2, 1, 0).WithBuild("x"), "2.1.0+x"},
+		{semver.New(2, 1, 1).WithRelease("y.z"), "2.1.1-y.z"},
+		{semver.New(2, 1, 2).WithBuild("x.a").WithRelease("y.z"), "2.1.2-y.z+x.a"},
+	}
+	for _, tc := range tests {
+		got, err := tc.input.MarshalText()
+		if err != nil {
+			t.Errorf("MarshalText %v: unexpected error: %v", tc.input, err)
+		}
+		if string(got) != tc.want {
+			t.Errorf("MarshalText %v: got %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestUnmarshalText(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    semver.V
+		errText string
+	}{
+		{"", semver.V{}, "wrong length"},
+		{"1qqq.0.1", semver.V{}, "invalid major"},
+		{"1.0qqq.1", semver.V{}, "invalid minor"},
+		{"1.0.1qqqq", semver.V{}, "invalid patch"},
+		{"1.0.1", semver.New(1, 0, 1), ""},
+		{"v1.0.2", semver.New(1, 0, 2), ""},
+		{"v1.0.3-rc1.3", semver.New(1, 0, 3).WithRelease("rc1.3"), ""},
+		{"1.0.4-rc1.3", semver.New(1, 0, 4).WithRelease("rc1.3"), ""},
+		{"v1.0.5+dev", semver.New(1, 0, 5).WithBuild("dev"), ""},
+		{"1.0.6+dev", semver.New(1, 0, 6).WithBuild("dev"), ""},
+		{"v1.0.7-rc2.4+dev.foo", semver.New(1, 0, 7).WithBuild("dev.foo").WithRelease("rc2.4"), ""},
+		{"1.0.8-rc2.4+dev.foo", semver.New(1, 0, 8).WithBuild("dev.foo").WithRelease("rc2.4"), ""},
+	}
+	for _, tc := range tests {
+		var got semver.V
+		err := got.UnmarshalText([]byte(tc.input))
+		if tc.errText != "" && (err == nil || !strings.Contains(err.Error(), tc.errText)) {
+			t.Errorf("UnmarshalText %q: got (%v, %v), wanted error %q", tc.input, got, err, tc.errText)
+		}
+		if got != tc.want {
+			t.Errorf("UnmarshalText %q: got %v, want %v", tc.input, got, tc.want)
+		}
+	}
+}
+
 func BenchmarkParse(b *testing.B) {
 	benchInput := func(input string) func(b *testing.B) {
 		return func(b *testing.B) {
