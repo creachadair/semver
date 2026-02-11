@@ -419,8 +419,8 @@ func checkWords(s string) error {
 }
 
 func cutWord(s string) (w, rest string) {
-	if i := strings.Index(s, "."); i >= 0 {
-		return s[:i], s[i+1:]
+	if before, after, ok := strings.Cut(s, "."); ok {
+		return before, after
 	}
 	return s, ""
 }
@@ -467,19 +467,19 @@ func split3(s string) (ss [3]string, err error) {
 	if s == "" {
 		return ss, countError(0)
 	}
-	d1 := strings.Index(s, ".")
-	if d1 < 0 {
+	before, after, ok := strings.Cut(s, ".")
+	if !ok {
 		ss[0] = s
 		return ss, countError(1)
 	}
-	ss[0], s = s[:d1], s[d1+1:]
-	d2 := strings.Index(s, ".")
-	if d2 < 0 {
+	ss[0], s = before, after
+	before, after, ok = strings.Cut(s, ".")
+	if !ok {
 		ss[1] = s
 		return ss, countError(2)
 	}
-	ss[1] = s[:d2]
-	ss[2] = s[d2+1:]
+	ss[1] = before
+	ss[2] = after
 	if n := strings.Count(ss[2], "."); n != 0 {
 		return ss, countError(n + 3)
 	}
