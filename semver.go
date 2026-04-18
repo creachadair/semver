@@ -90,7 +90,8 @@ func (v V) Minor() int { return mustVal(v.minor) }
 func (v V) Patch() int { return mustVal(v.patch) }
 
 // Add returns a copy of v with the specified offsets added to core versions.
-// Offsets that would cause a version to become negative set it to 0 instead.
+// Negative offsets are allowed. Offsets that would cause a version to become
+// negative set it to 0 instead.
 func (v V) Add(dmajor, dminor, dpatch int) V {
 	m, i, p := max(v.Major()+dmajor, 0), max(v.Minor()+dminor, 0), max(v.Patch()+dpatch, 0)
 	return v.WithCore(m, i, p)
