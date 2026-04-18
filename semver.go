@@ -166,9 +166,9 @@ func (v *V) UnmarshalText(text []byte) error {
 // Compare compares v1 and v2 in standard semantic version order.
 // It returns -1 if v1 < v2, 0 if v1 == v2, and +1 if v1 > v2.
 //
-// Semantic versions are compared in lexicographic order by major, minor,
-// patch, and pre-release labels. The core major, minor, and patch labels are
-// compared numerically, with smaller values ordered earlier.
+// Semantic versions are ordered lexicographically by major, minor, patch, and
+// pre-release labels. The core major, minor, and patch labels are compared
+// numerically, with smaller values ordered earlier.
 //
 // Pre-release labels are split into non-empty words separated by period (".")
 // and compared lexicographically. Words comprising only digits are compared
