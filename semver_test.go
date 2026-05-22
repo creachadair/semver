@@ -231,6 +231,9 @@ func TestClean(t *testing.T) {
 		{"1-+bar", "1.0.0+bar"},
 		{"1+bar-", "1.0.0+bar-"},
 		{"1.2-a..b+c-d.e.", "1.2.0-a.b+c-d.e"},
+		{"1.5-..a...b.+....", "1.5.0-a.b"},
+		{"2-....+b..c.", "2.0.0+b.c"},
+		{"3-..a...b..+...c..", "3.0.0-a.b+c"},
 	}
 	for _, tc := range tests {
 		got := semver.Clean(tc.input)

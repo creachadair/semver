@@ -232,21 +232,7 @@ func Parse(s string) (V, error) {
 	// Grammar: https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions
 
 	// Check for release and build labels.
-	var release, build string
-	var hasRelease, hasBuild bool
-	if i := strings.IndexAny(s, "-+"); i >= 0 {
-		rest := s[i:] // N.B. keep the marker
-		s = s[:i]
-
-		if p, ok := strings.CutPrefix(rest, "-"); ok {
-			// rest == "-<release>[+<build>]"
-			hasRelease = true
-			release, build, hasBuild = strings.Cut(p, "+")
-		} else {
-			// rest == "" or rest == "+<build>"
-			build, hasBuild = strings.CutPrefix(rest, "+")
-		}
-	}
+	s, release, build, hasRelease, hasBuild := splitReleaseBuild(s)
 
 	// Parse the base version: major '.' minor '.' patch
 	ps, err := split3(s)
@@ -309,16 +295,8 @@ func parseClean(s string) (V, string, bool) {
 	if v, err := Parse(base); err == nil {
 		return v, base, true // already valid
 	}
-	var release, build string
-	if i := strings.IndexAny(base, "-+"); i >= 0 {
-		tail := base[i:]
-		base = base[:i]
-		if p, ok := strings.CutPrefix(tail, "-"); ok {
-			release, build, _ = strings.Cut(p, "+")
-		} else {
-			build = p[1:] // drop "+"
-		}
-	}
+
+	base, release, build, _, _ := splitReleaseBuild(base)
 	ps, _ := split3(base)
 	if ps[0] == "" {
 		return V{}, s, false // N.B. unmodified, not stripped
@@ -419,11 +397,9 @@ func checkWords(s string) error {
 	return nil
 }
 
-func cutWord(s string) (w, rest string) {
-	if before, after, ok := strings.Cut(s, "."); ok {
-		return before, after
-	}
-	return s, ""
+func cutDotWord(s string) (w, rest string) {
+	w, rest, _ = strings.Cut(s, ".")
+	return
 }
 
 // compareWords compares a and b lexicographically as a dot-separated sequence
@@ -431,8 +407,8 @@ func cutWord(s string) (w, rest string) {
 // compare corresponding elements.
 func compareWords(a, b string) int {
 	for {
-		wa, ra := cutWord(a)
-		wb, rb := cutWord(b)
+		wa, ra := cutDotWord(a)
+		wb, rb := cutDotWord(b)
 		if wa == "" && wb == "" {
 			return 0
 		} else if c := compareWord(wa, wb); c != 0 {
@@ -487,13 +463,55 @@ func split3(s string) (ss [3]string, err error) {
 	return
 }
 
+// splitReleaseBuild splits s into the form "<prefix>[-<release>][+<build>]"
+// and reports whether a release and/or build label was present.
+// If neither was present, prefix == s.
+func splitReleaseBuild(s string) (prefix, release, build string, hasRelease, hasBuild bool) {
+	prefix = s
+	i := strings.IndexAny(s, "-+")
+	if i < 0 {
+		return
+	}
+	rest := s[i:] // N.B. keep the marker
+	prefix = s[:i]
+
+	if p, ok := strings.CutPrefix(rest, "-"); ok {
+		// rest == "-<release>[+<build>]"
+		hasRelease = true
+		release, build, hasBuild = strings.Cut(p, "+")
+	} else {
+		// rest == "" or rest == "+<build>"
+		build, hasBuild = strings.CutPrefix(rest, "+")
+	}
+	return
+}
+
 // joinCleanWords returns a copy of s with all empty words removed.
 func joinCleanWords(s string) string {
 	t := strings.Trim(s, ".")
 	if !strings.Contains(t, ".") {
 		return t // all one word
+	} else if !strings.Contains(s, "..") {
+		return t // no empty words can be present
 	}
-	return strings.ReplaceAll(t, "..", ".")
+	buf := make([]byte, 0, len(s))
+	put := func(w string) {
+		if w != "" {
+			if len(buf) != 0 {
+				buf = append(buf, '.')
+			}
+			buf = append(buf, w...)
+		}
+	}
+	for s != "" {
+		w, rest, ok := strings.Cut(s, ".")
+		put(w) // either the next word, or the unclaimed suffix
+		if !ok {
+			break
+		}
+		s = rest
+	}
+	return string(buf)
 }
 
 type countError int
