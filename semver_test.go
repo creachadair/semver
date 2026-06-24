@@ -155,6 +155,41 @@ func TestFormat(t *testing.T) {
 	}
 }
 
+func TestParseClean(t *testing.T) {
+	tests := []struct {
+		input string
+		want  semver.V
+	}{
+		// Already valid before cleaning.
+		{"1.2.3", semver.New(1, 2, 3)},
+		{"1.3.4-mark2.1", semver.New(1, 3, 4).WithRelease("mark2.1")},
+		{"2.3.5+dirty", semver.New(2, 3, 5).WithBuild("dirty")},
+		{"3.4.6-rc1+final", semver.New(3, 4, 6).WithRelease("rc1").WithBuild("final")},
+
+		// Valid after cleaning.
+		{"0", semver.New(0, 0, 0)},
+		{"v1", semver.New(1, 0, 0)},
+		{" v2.79\n", semver.New(2, 79, 0)},
+
+		// Various consolidations.
+		{"2.-x", semver.New(2, 0, 0).WithRelease("x")},
+		{"3.3+y", semver.New(3, 3, 0).WithBuild("y")},
+		{"v4-x+y", semver.New(4, 0, 0).WithRelease("x").WithBuild("y")},
+		{"5.6-..a...b.+....", semver.New(5, 6, 0).WithRelease("a.b")},
+		{"7.+..c...d..e", semver.New(7, 0, 0).WithBuild("c.d.e")},
+	}
+	for _, tc := range tests {
+		got, err := semver.ParseClean(tc.input)
+		if err != nil {
+			t.Errorf("ParseClean(%q): unexpected error: %v", tc.input, err)
+			continue
+		}
+		if got != tc.want { // N.B. yes, structurally equal
+			t.Errorf("ParseClean(%q): got %#v, want %#v", tc.input, got, tc.want)
+		}
+	}
+}
+
 func TestErrors(t *testing.T) {
 	tests := []struct {
 		input string

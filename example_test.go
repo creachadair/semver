@@ -33,8 +33,8 @@ func Example() {
 	// equiv: 1.5.3-rc1.4+modified 1.5.3-rc1.4 true
 }
 
-func ExampleParse() {
-	v, err := semver.Parse(semver.Clean(" v1.2-alpha..9.\n"))
+func ExampleParseClean() {
+	v, err := semver.ParseClean(" v1.2-alpha..9.\n")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -22,10 +22,15 @@
 //
 //	v, err := semver.Parse("1.0.0-rc1.2+unstable")
 //
-// If you have a partial version string, with some of the parts not specified
-// or a "v" prefix, use [Clean] to normalize it:
+// The [Parse] function is strict about the semver grammar. If you have a
+// partial version string, with some of the parts not specified or a "v"
+// prefix, use [Clean] to normalize it:
 //
-//	v, err := semver.Parse(semver.Clean("v1.2-alpha.9"))
+//	s := semver.Clean("v1.2-alpha.9")
+//
+// or to clean and parse in a single step, use:
+//
+//	v, err := semver.ParseClean("v1.2-alpha.9")
 //
 // # Comparison
 //
@@ -205,8 +210,8 @@ func Compare(v1, v2 V) int {
 // If either string is not a valid semver after cleaning, the two strings are
 // compared in ordinary lexicographic order.
 func CompareStrings(s1, s2 string) int {
-	if v1, _, ok := parseClean(s1); ok {
-		if v2, _, ok := parseClean(s2); ok {
+	if v1, _, err := parseClean(s1); err == nil {
+		if v2, _, err := parseClean(s2); err == nil {
 			return Compare(v1, v2)
 		}
 	}
@@ -269,6 +274,13 @@ func Parse(s string) (V, error) {
 	return v, nil
 }
 
+// ParseClean returns the [V] represented by s. It reports an error if s is not
+// a valid semantic version string after cleaning (as per [Clean]).
+func ParseClean(s string) (V, error) {
+	v, _, err := parseClean(s)
+	return v, err
+}
+
 // Clean returns a lexically normalized form of a semver-like string.
 // The following changes are made, if possible:
 //
@@ -282,24 +294,22 @@ func Parse(s string) (V, error) {
 // particular, if s contains invalid characters or non-numeric version numbers,
 // the result may (still) not be a valid version string.
 func Clean(s string) string {
-	if _, clean, ok := parseClean(s); ok {
-		return clean
-	}
-	return s
+	_, clean, _ := parseClean(s)
+	return clean
 }
 
 // parseClean cleans s according to the rules of [Clean] and reports whether
 // the resulting string was valid. If so, it returns the parsed [V] for it.
-func parseClean(s string) (V, string, bool) {
+func parseClean(s string) (V, string, error) {
 	base := strings.TrimPrefix(strings.TrimSpace(s), "v")
 	if v, err := Parse(base); err == nil {
-		return v, base, true // already valid
+		return v, base, nil // already valid
 	}
 
 	base, release, build, _, _ := splitReleaseBuild(base)
-	ps, _ := split3(base)
+	ps, err := split3(base)
 	if ps[0] == "" {
-		return V{}, s, false // N.B. unmodified, not stripped
+		return V{}, s, err // N.B. unmodified, not stripped
 	}
 	out, modified := base, false
 	for i := range ps {
@@ -319,7 +329,7 @@ func parseClean(s string) (V, string, bool) {
 		out += "+" + p
 	}
 	v, err := Parse(out)
-	return v, out, err == nil
+	return v, out, err
 }
 
 // mustVal returns the integer represented by s, or panics.
