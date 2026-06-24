@@ -438,39 +438,50 @@ func TestUnmarshalText(t *testing.T) {
 }
 
 func BenchmarkParse(b *testing.B) {
-	benchInput := func(input string) func(b *testing.B) {
+	benchInput := func(input string, parse func(string) (semver.V, error)) func(b *testing.B) {
 		return func(b *testing.B) {
 			for b.Loop() {
-				_, err := semver.Parse(input)
+				_, err := parse(input)
 				if err != nil {
 					b.Fatal(err)
 				}
 			}
 		}
 	}
-	b.Run("Short", benchInput("1.2.3-four+five"))
-
-	const long = "123456789.9876543210.1234567890000-alpha.bravo.charlie.delta.echo.foxtrot+a.123.456789a.bcdefghijklmnopq-rst"
-	b.Run("Long", benchInput(long))
-
-	// Verify that semver.Parse does not allocate memory on a valid input.
-	if na := testing.AllocsPerRun(1000, func() {
-		semver.Parse(long)
-	}); na != 0 {
-		b.Errorf("Valid input: saw %f allocations, want 0", na)
+	checkAlloc := func(label string, max float64, f func()) {
+		if na := testing.AllocsPerRun(1000, f); na > max {
+			b.Errorf("%s: got %f allocations, want at most %f", label, na, max)
+		}
 	}
+	const (
+		short     = "1.2.3-four+five"
+		long      = "123456789.9876543210.1234567890000-alpha.bravo.charlie.delta.echo.foxtrot+a.123.456789a.bcdefghijklmnopq-rst"
+		longBad   = "123456789.9876543210.1234567890000-alpha.bravo.charlie.delta.echo.foxtrot+a.123.456789a.bcdefghijklmnopq-***...."
+		dirty     = " v1.2-four..five+six  "
+		longDirty = "\t\nv123456789.9876543210.1234567890000-alpha..bravo.charlie.delta.echo.foxtrot+..a.123.456789a.bcdefghijklmnopq-rst.... \n "
+	)
+
+	b.Run("Strict/Short", benchInput(short, semver.Parse))
+	b.Run("Strict/Long", benchInput(long, semver.Parse))
+	b.Run("Lax/Short", benchInput(short, semver.ParseClean))
+	b.Run("Lax/Long", benchInput(long, semver.ParseClean))
+
+	// Verify that Parse and ParseClean do not allocate memory on a valid input.
+	// For ParseClean, removing whitespace and a "v" prefix should not affect this.
+	checkAlloc("Valid strict", 0, func() { semver.Parse(long) })
+	checkAlloc("Valid lax", 0, func() { semver.ParseClean(" v" + long + "\n") })
+
+	// Lax parses of "dirty" inputs (those requiring non-trivial cleaning) are
+	// generally expected to cause allocations.
+	b.Run("Lax/Dirty/Short", benchInput(dirty, semver.ParseClean))
+	b.Run("Lax/Dirty/Long", benchInput(longDirty, semver.ParseClean))
 
 	// Verify that semver.Parse does not allocate memory on an invalid input.
 	// Allow 1 allocation for the error that is reported (which is interface boxed).
-	const longBad = "123456789.9876543210.1234567890000-alpha.bravo.charlie.delta.echo.foxtrot+a.123.456789a.bcdefghijklmnopq-***...."
 	if _, err := semver.Parse(longBad); err == nil {
-		b.Errorf("Parse %q: unexpected success", longBad)
+		b.Fatalf("Parse %q: incorrect test input, this should report an error", longBad)
 	}
-	if na := testing.AllocsPerRun(1000, func() {
-		semver.Parse(longBad)
-	}); na > 1 {
-		b.Errorf("Invalid input: saw %f allocations, want 0", na)
-	}
+	checkAlloc("Invalid strict", 1, func() { semver.Parse(longBad) })
 }
 
 func BenchmarkClean(b *testing.B) {
