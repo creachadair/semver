@@ -258,6 +258,19 @@ func TestClean(t *testing.T) {
 		{" v2\t", "2.0.0"},
 		{"\tv3.14\r\n", "3.14.0"},
 
+		// Leading zeroes are removed from version components.
+		{"000", "0.0.0"},
+		{"0.00", "0.0.0"},
+		{"00.00", "0.0.0"},
+		{"001", "1.0.0"},
+		{"0.001.002", "0.1.2"},
+		{"000.010.01001", "0.10.1001"},
+		{"a.013.0b", "a.13.b"},            // not finally valid, but so-adjusted
+		{"0ab.0c.00d", "ab.c.d"},          // not finally valid, but so-adjusted
+		{"0ab0.0c.0d0", "ab0.c.d0"},       // not finally valid, keeps trailing zeroes
+		{"01.02.03-04.05", "1.2.3-04.05"}, // only versions, not release
+		{"01.02.03+04.05", "1.2.3+04.05"}, // only versions, not build
+
 		// Empty fragments are discarded, in various combinations.
 		{"1-", "1.0.0"},
 		{"1+", "1.0.0"},

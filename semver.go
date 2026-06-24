@@ -287,6 +287,7 @@ func ParseClean(s string) (V, error) {
 //   - Leading and trailing whitespace is removed.
 //   - A leading "v" is removed, if present.
 //   - Omitted minor or patch versions are set to "0".
+//   - Extra leading zeroes are removed from version numbers.
 //   - Empty release and build labels are removed.
 //
 // If a major version is not present, Clean returns s entirely unmodified.
@@ -315,6 +316,9 @@ func parseClean(s string) (V, string, error) {
 	for i := range ps {
 		if ps[i] == "" {
 			ps[i] = "0"
+			modified = true
+		} else if p, ok := trimLeadingZeroes(ps[i]); ok {
+			ps[i] = p
 			modified = true
 		}
 	}
@@ -384,6 +388,18 @@ func checkVNum(s string) error {
 		return errLeadingZero
 	}
 	return nil
+}
+
+// trimLeadingZeroes removes any leading zeroes from s, and reports whether the
+// result differs from the input.
+func trimLeadingZeroes(s string) (string, bool) {
+	if s == "" || s[0] != '0' {
+		return s, false
+	}
+	for len(s) > 1 && s[0] == '0' {
+		s = s[1:]
+	}
+	return s, true
 }
 
 // checkWords parses s as a dot-separated sequence of words and reports an
