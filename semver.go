@@ -233,6 +233,10 @@ func IsValid(s string) bool { _, err := Parse(s); return err == nil }
 
 // Parse returns the [V] represented by s. It reports an error if s is not a
 // valid semantic version string. On success, Parse does not allocate.
+//
+// Parse is strict about the semver grammar, and does not whitespace, a "v"
+// prefix, or "partial" versions like "1.2". Use [Clean] or [ParseClean] to
+// handle version strings with those properties.
 func Parse(s string) (V, error) {
 	// Grammar: https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions
 
